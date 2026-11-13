@@ -1,6 +1,6 @@
 import express from 'express'
 import cors from 'cors'
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 import 'dotenv/config'
 
 const app = express()
@@ -25,6 +25,77 @@ const connectedClient = await connectToMongoDB();
 const database = connectedClient.db('hireloop');
 const users = database.collection("user");
 const jobs = database.collection("jobs");
+const applications = database.collection("applications");
+
+
+app.post('/job/create',async(req,res)=> {
+  const job = req.body;
+  const result = await jobs.insertOne(job);
+  res.send(result);
+})
+
+app.get('/jobs',async(req,res)=> {
+  const query = {};
+  // console.log(req.query);
+  if(req.query){
+    if(req.query.jobType){
+      query.jobType = req.query.jobType;
+    }
+    if(req.query.isRemote){
+      query.isRemote = req.query.isRemote ==='true';
+    }
+    if(req.query.category){
+      query.category= req.query.category;
+    }
+    if(req.query.search){
+      query.$or=[
+        {title:{$regex:req.query.search, $options:'i'}},
+        {responsibilities:{$regex:req.query.search, $options:'i'}},
+        {requirements:{$regex:req.query.search, $options:'i'}},
+
+      ]
+    }
+  }
+  const cursor = jobs.find(query);
+  const result = await cursor.toArray();
+  res.send(result)
+})
+
+app.get('/jobs/:id',async(req,res)=>{
+  const id = req.params.id;
+  const query = {_id:new ObjectId(id)};
+  const result = await jobs.findOne(query);
+  res.send(result);
+})
+
+app.delete('/jobs/:id',async(req,res)=> {
+  const id = req.params.id;
+  const query = {_id: new ObjectId(id)};
+  const result = await jobs.deleteOne(query);
+  res.send(result);
+})
+
+
+
+// application related apis
+app.post('/applications',async(req,res) => {
+  const application = req.body;
+  const result = await applications.insertOne(application);
+  res.send(result)
+})
+
+
+app.get('/applications',async(req,res)=> {
+  const query = {};
+  if(req.query.applicantId){
+    query.userId= req.query.applicantId;
+  }
+  const cursor = applications.find(query);
+  const result = await cursor.toArray();
+  res.send(result);
+})
+
+
 
 app.get('/users',async(req,res)=> {
     const cursor = users.find({});
