@@ -2,6 +2,10 @@ import express from 'express'
 import cors from 'cors'
 import { MongoClient, ObjectId } from 'mongodb';
 import 'dotenv/config'
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+
 
 const app = express()
 const port = process.env.PORT || 8000 ;
@@ -26,7 +30,7 @@ const database = connectedClient.db('hireloop');
 const users = database.collection("user");
 const jobs = database.collection("jobs");
 const applications = database.collection("applications");
-
+const payments = database.collection("payments");
 
 app.post('/job/create',async(req,res)=> {
   const job = req.body;
@@ -103,12 +107,75 @@ app.get('/applications/count',async(req,res)=> {
   res.send({count:result});
 })
 
+// payments related apis
+app.post('/payments/checkout-verify',async(req,res)=>{
+const {sessionId} = req.body;
+if(!sessionId){
+  return res.send({success:false, message:'Session Id is required'})
+}
+const {
+      status,
+    payment_status,
+    customer_email,
+    metadata,
+    payment_intent,
+} = await stripe.checkout.sessions.retrieve(sessionId);
+// 1. is used new new session
+// 2. check is the session id for the currently logged in user
+// 3.insert sessionid into the payment colleciton
+// 4.update user information as premium user
+
+if (status === 'complete' && payment_status==="paid"){
+  const sessionQuery = {sessionId};
+  const existingPayment = await payments.findOne(sessionQuery);
+  if(existingPayment){
+    return res.send({success:false, message:'Payment already verified'})
+  }
+  const payment ={
+        status,
+      payment_status,
+      customer_email,
+      userId:metadata.userId,
+      payment_date:new Date(),
+      payment_intent,
+  }
+  const result = await payments.insertOne(payment);
+
+// update the user table
+const query = {_id: new ObjectId(metadata.userId)}
+
+  const updatedDoc = {
+    $set:{
+      premium:true,
+    }
+  }
+
+  const updateResult = await users.updateOne(
+    query,
+    updatedDoc
+  );
+  res.send({success:true, result, updateResult});
+  return
+}
+res.send({success:false, message:'Payment verification failed'})
 
 
+})
+
+
+
+// users realeted apis
 app.get('/users',async(req,res)=> {
     const cursor = users.find({});
     const result = await cursor.toArray();
     res.send(result);
+})
+
+app.get('/users/:id/premium',async(req,res)=>{
+  const id = req.params.id;
+  const query =  {_id: new ObjectId(id)};
+  const result = await users.findOne(query,{projection:{premium:1}});
+  res.send(result)
 })
 
 app.get('/',(req,res)=> {
