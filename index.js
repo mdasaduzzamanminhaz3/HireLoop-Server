@@ -97,10 +97,49 @@ app.get('/applications',async(req,res)=> {
   if(req.query.applicantId){
     query.userId= req.query.applicantId;
   }
+  if(req.query.jobId){
+    query.jobId= req.query.jobId;
+  }
   const cursor = applications.find(query);
   const result = await cursor.toArray();
   res.send(result);
 })
+
+// only these values may be written to an application's status
+const APPLICATION_STATUSES = ["applied", "shortlisted", "interview", "rejected", "hired"];
+
+app.patch('/applications/:id',async(req,res)=> {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  // reject malformed ids instead of crashing with a 500 (ObjectId throws on bad input)
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).send({ success: false, message: 'Invalid application id' });
+  }
+
+  // reject unknown status values so garbage data never reaches the collection
+  if (!APPLICATION_STATUSES.includes(status)) {
+    return res.status(400).send({
+      success: false,
+      message: `Invalid status. Allowed values: ${APPLICATION_STATUSES.join(', ')}`,
+    });
+  }
+
+  const result = await applications.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: { status } }
+  );
+
+  // id was valid but no application matched it
+  if (result.matchedCount === 0) {
+    return res.status(404).send({ success: false, message: 'Application not found' });
+  }
+
+  res.send({ success: true, result });
+})
+
+
+
 app.get('/applications/count',async(req,res)=> {
   const query = {};
   if(req.query.applicantId){
