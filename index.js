@@ -51,6 +51,9 @@ app.get('/jobs',async(req,res)=> {
     if(req.query.category){
       query.category= req.query.category;
     }
+    if(req.query.recruiterId){
+      query.recruiterId = req.query.recruiterId;
+    }
     if(req.query.search){
       query.$or=[
         {title:{$regex:req.query.search, $options:'i'}},
