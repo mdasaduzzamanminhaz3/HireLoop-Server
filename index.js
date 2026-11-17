@@ -8,7 +8,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 
 const app = express()
-const port = process.env.PORT || 8000 ;
+const port = process.env.PORT || 5000 ;
 app.use(express.json());
 app.use(cors());
 
@@ -218,6 +218,18 @@ app.get('/users/:id/premium',async(req,res)=>{
   const query =  {_id: new ObjectId(id)};
   const result = await users.findOne(query,{projection:{premium:1}});
   res.send(result)
+})
+
+app.patch('/users/:id/role',async(req,res)=> {
+const id = req.params.id;
+const query = {_id: new ObjectId(id)};
+const updatedDoc = {
+  $set:{
+    role: req.body.role,
+  }
+}
+const result = await users.updateOne(query,updatedDoc);
+res.send(result);
 })
 
 app.get('/',(req,res)=> {
