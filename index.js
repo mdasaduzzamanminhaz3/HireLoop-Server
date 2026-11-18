@@ -13,11 +13,6 @@ app.use(express.json());
 app.use(cors());
 
 
-const myLooger = (req,res,next)=> {
-  console.log("Now hitting api", req.url, req.headers);
-  next();
-}
-
 const client = new MongoClient(`mongodb://${process.env.DB_USER}:${process.env.DB_SECRET}@ac-nmhfvdj-shard-00-00.sewarun.mongodb.net:27017,ac-nmhfvdj-shard-00-01.sewarun.mongodb.net:27017,ac-nmhfvdj-shard-00-02.sewarun.mongodb.net:27017/?ssl=true&replicaSet=atlas-1na5kl-shard-0&authSource=admin`);
 
 export async function connectToMongoDB() {
@@ -154,7 +149,7 @@ app.post('/applications',verifyToken,verifySeeker,async(req,res) => {
 })
 
 
-app.get('/applications',myLooger,verifyToken,async(req,res)=> {
+app.get('/applications',verifyToken,async(req,res)=> {
   const query = {};
   if(req.query.applicantId){
     query.userId= req.query.applicantId;
@@ -275,7 +270,7 @@ res.send({success:false, message:'Payment verification failed'})
 
 
 // users realeted apis
-app.get('/users',async(req,res)=> {
+app.get('/users',verifyToken,verifyAdmin,async(req,res)=> {
     const cursor = users.find({});
     const result = await cursor.toArray();
     res.send(result);
